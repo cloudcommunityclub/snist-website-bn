@@ -1,0 +1,35 @@
+{
+  "name": "c3-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Cloud Community Club membership registration.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "nodejs",
+    "membership",
+    "backend"
+  ],
+  "author": "Cloud Community Club",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "googleapis": "^170.1.0",
+    "mongoose": "^9.1.5",
+    "nodemailer": "^7.0.13",
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^11.0.1",
+    "supertest": "^7.2.2"
+  }
+}
