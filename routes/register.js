@@ -1,12 +1,43 @@
 import { Router } from "express";
-import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import dotenv from "dotenv";
+import rateLimit from 'express-rate-limit';
 import Registration2026 from "../models/registration2026.js";
 import { requireApiKey } from "../middleware/auth.js";
 dotenv.config();
 const router = Router();
 const OAuth2 = google.auth.OAuth2;
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { message: 'error', error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Singleton OAuth2 client — initialized once at module load
+let oauthClient = null;
+function getOAuthClient() {
+  if (!oauthClient) {
+    oauthClient = new OAuth2(
+      process.env.CLIENT_ID,
+      process.env.CLIENT_SECRET,
+      process.env.OAUTH_REDIRECT_URI || 'https://developers.google.com/oauthplayground'
+    );
+    oauthClient.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
+  }
+  return oauthClient;
+}
+
+// Helper function to HTML-escape user-supplied values in email templates
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 // Helper function to encode email body for Gmail API
 function makeBody(to, from, subject, message) {
@@ -38,7 +69,7 @@ router.get("/", (req, res) => {
 });
 
 // POST route for form submission (protected with API key)
-router.post("/", requireApiKey, async (req, res) => {
+router.post("/", apiLimiter, requireApiKey, async (req, res) => {
   try {
     const {
       name,
@@ -94,22 +125,13 @@ router.post("/", requireApiKey, async (req, res) => {
 
     await Registration2026.findOneAndUpdate(
       { email: { $eq: email } },
-      memberData,
+      { $set: memberData, $setOnInsert: { emailSent: false, createdAt: new Date() } },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     // Send welcome email using Direct Gmail API (Port 443)
     try {
-      const oauth2Client = new OAuth2(
-        process.env.CLIENT_ID,
-        process.env.CLIENT_SECRET,
-        "https://developers.google.com/oauthplayground"
-      );
-
-      oauth2Client.setCredentials({
-        refresh_token: process.env.REFRESH_TOKEN
-      });
-
+      const oauth2Client = getOAuthClient();
       const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
       const htmlBody = `
@@ -152,7 +174,7 @@ router.post("/", requireApiKey, async (req, res) => {
           <tr>
             <td align="center" style="padding: 0 40px 30px 40px;">
               <p style="margin: 0; font-size: 16px; color: #6b7280; line-height: 1.6;">
-                Welcome aboard, <strong style="color: #111827; text-transform: capitalize;">${name}</strong>!
+                Welcome aboard, <strong style="color: #111827; text-transform: capitalize;">${escHtml(name)}</strong>!
               </p>
               <p style="margin: 10px 0 0 0; font-size: 16px; color: #6b7280; line-height: 1.6;">
                 Your application has been accepted. You are now an official member of C³.
@@ -178,7 +200,7 @@ router.post("/", requireApiKey, async (req, res) => {
                     </table>
 
                     <div style="margin-top: 20px; margin-bottom: 5px; font-size: 22px; color: #ffffff; font-weight: bold; text-transform: capitalize;">
-                      ${name}
+                      ${escHtml(name)}
                     </div>
                     
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 15px;">
@@ -188,7 +210,7 @@ router.post("/", requireApiKey, async (req, res) => {
                             Student ID
                           </div>
                           <div style="color: #ffffff; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">
-                            ${rollNumber}
+                            ${escHtml(rollNumber)}
                           </div>
                         </td>
                         
@@ -200,7 +222,7 @@ router.post("/", requireApiKey, async (req, res) => {
                             Department
                           </div>
                           <div style="color: #ffffff; font-size: 14px; font-weight: 600;">
-                            ${department}
+                            ${escHtml(department)}
                           </div>
                         </td>
                       </tr>
@@ -277,6 +299,11 @@ router.post("/", requireApiKey, async (req, res) => {
 
       console.log("✅ Email sent successfully via Gmail API");
 
+      await Registration2026.updateOne(
+        { email: { $eq: email } },
+        { $set: { emailSent: true, emailSentAt: new Date() } }
+      );
+
     } catch (emailError) {
       console.error('❌ API Error (Email Failed):', emailError.message);
       // Don't fail the registration if email fails
@@ -299,6 +326,28 @@ router.post("/", requireApiKey, async (req, res) => {
       message: "error",
       error: "An error occurred during registration"
     });
+  }
+});
+
+/**
+ * GET /api/register/check?email=...
+ * Check if an email is already registered (for frontend pre-check)
+ */
+router.get('/check', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'error', error: 'Email query parameter is required' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await Registration2026.findOne({ email: { $eq: normalizedEmail } }).select('email emailSent createdAt').lean();
+    return res.status(200).json({
+      message: 'success',
+      data: { registered: !!existing, emailSent: existing?.emailSent ?? false }
+    });
+  } catch (error) {
+    console.error('Check email error:', error);
+    return res.status(500).json({ message: 'error', error: 'An error occurred' });
   }
 });
 

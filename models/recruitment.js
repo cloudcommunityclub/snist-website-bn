@@ -43,6 +43,10 @@ const RecruitmentSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // PR / solution URL submitted by candidate
+    prUrl: {
+        type: String
+    },
     // Metadata
     source: {
         type: String,

@@ -3,6 +3,8 @@
  * Validates API key from request headers
  */
 
+import crypto from 'node:crypto';
+
 export function requireApiKey(req, res, next) {
     const apiKey = req.headers['x-api-key'];
     const serverApiKey = process.env.API_KEY;
@@ -16,8 +18,8 @@ export function requireApiKey(req, res, next) {
         });
     }
 
-    // Validate API key
-    if (!apiKey || apiKey !== serverApiKey) {
+    // Validate API key using timing-safe comparison to prevent timing attacks
+    if (!apiKey || apiKey.length !== serverApiKey.length || !crypto.timingSafeEqual(Buffer.from(apiKey), Buffer.from(serverApiKey))) {
         console.warn(`🚫 Unauthorized access attempt from IP: ${req.ip}`);
         return res.status(401).json({
             message: 'error',
@@ -26,13 +28,5 @@ export function requireApiKey(req, res, next) {
     }
 
     // API key is valid, continue to next middleware
-    next();
-}
-
-/**
- * Optional: Log successful authentications
- */
-export function logAuthentication(req, res, next) {
-    console.log(`✅ Authenticated request: ${req.method} ${req.path} from ${req.ip}`);
     next();
 }

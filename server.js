@@ -2,8 +2,9 @@ import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import registerRoutes from './routes/register.js';
+import adminRoutes from './routes/admin.js';
 import recruitmentRoutes from './routes/recruitment.js';
 import dns from 'node:dns';
 
@@ -13,6 +14,7 @@ dns.setDefaultResultOrder('ipv4first');
 dotenv.config();
 
 const app = express();
+app.use(helmet());
 const PORT = process.env.PORT || 5000;
 
 // CORS configuration
@@ -27,27 +29,17 @@ const corsOptions = {
   credentials: true
 };
 
-// Rate limiting configuration
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    message: 'error',
-    error: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
-  legacyHeaders: false, // Disable `X-RateLimit-*` headers
-});
-
 // Middleware
 app.use(cors(corsOptions));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 // Add request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  console.log('Headers:', req.headers);
+  const headersToLog = { ...req.headers };
+  if (headersToLog['x-api-key']) headersToLog['x-api-key'] = '[REDACTED]';
+  console.log('Headers:', headersToLog);
   if (req.body && Object.keys(req.body).length > 0) {
     console.log('Body:', req.body);
   }
@@ -59,18 +51,12 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Test POST endpoint
-app.post('/test', (req, res) => {
-  res.status(200).json({
-    status: 'ok',
-    message: 'POST request received successfully',
-    body: req.body
-  });
-});
-
 // Routes
-app.use('/api/register', apiLimiter, registerRoutes);
-app.use('/api/recruitment', apiLimiter, recruitmentRoutes);
+app.use('/api/register', registerRoutes);
+app.use('/api/recruitment', recruitmentRoutes);
+
+// Admin routes — protected by requireApiKey middleware within the router
+app.use('/api/admin', adminRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -95,6 +81,8 @@ if (process.env.NODE_ENV !== 'test') {
       console.error('MongoDB connection error:', err);
       process.exit(1);
     });
+  mongoose.connection.on('disconnected', () => console.error('⚠️  MongoDB disconnected'));
+  mongoose.connection.on('reconnected', () => console.info('✅ MongoDB reconnected'));
 }
 
 export default app;

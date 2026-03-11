@@ -23,9 +23,8 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "googleapis": "^170.1.0",
-    "mongoose": "^9.1.5",
-    "nodemailer": "^7.0.13",
-    "pdf-lib": "^1.17.1"
+    "helmet": "^8.0.0",
+    "mongoose": "^9.1.5"
   },
   "devDependencies": {
     "jest": "^30.2.0",
