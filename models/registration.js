@@ -10,4 +10,4 @@ const RegistrationSchema = new mongoose.Schema({
     registrationID: {type: String}
 });
 
-export default mongoose.model('Registration', RegistrationSchema);
+export default mongoose.model('Registration', RegistrationSchema, 'registrations');
