@@ -16,16 +16,35 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Strict rate limiter for the email-check endpoint to prevent membership enumeration
+const checkLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 checks per hour per IP
+  message: { message: 'error', error: 'Too many check requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Singleton OAuth2 client — initialized once at module load
 let oauthClient = null;
 function getOAuthClient() {
   if (!oauthClient) {
+    if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET || !process.env.REFRESH_TOKEN) {
+      throw new Error('OAuth credentials not properly configured');
+    }
     oauthClient = new OAuth2(
       process.env.CLIENT_ID,
       process.env.CLIENT_SECRET,
       process.env.OAUTH_REDIRECT_URI || 'https://developers.google.com/oauthplayground'
     );
     oauthClient.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
+
+    // Reset singleton on token errors so the next request re-initializes cleanly
+    oauthClient.on('tokens', (tokens) => {
+      if (tokens.refresh_token) {
+        oauthClient.setCredentials({ refresh_token: tokens.refresh_token });
+      }
+    });
   }
   return oauthClient;
 }
@@ -333,7 +352,7 @@ router.post("/", apiLimiter, requireApiKey, async (req, res) => {
  * GET /api/register/check?email=...
  * Check if an email is already registered (for frontend pre-check)
  */
-router.get('/check', async (req, res) => {
+router.get('/check', checkLimiter, async (req, res) => {
   try {
     const { email } = req.query;
     if (!email || typeof email !== 'string') {

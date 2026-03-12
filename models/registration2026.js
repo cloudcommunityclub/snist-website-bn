@@ -71,4 +71,15 @@ Registration2026Schema.pre('save', function (next) {
     next();
 });
 
+/**
+ * Explicit indexes:
+ * - email: unique (auto-created by unique:true)
+ * - createdAt: descending (for sorting by date)
+ * - department + year: compound (for filtering)
+ * - emailSent: single (for status filtering)
+ */
+Registration2026Schema.index({ createdAt: -1 });
+Registration2026Schema.index({ department: 1, year: 1 });
+Registration2026Schema.index({ emailSent: 1 });
+
 export default mongoose.model('Registration2026', Registration2026Schema, 'registrations-2026');

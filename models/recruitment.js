@@ -68,4 +68,15 @@ RecruitmentSchema.pre('save', function (next) {
     next();
 });
 
+/**
+ * Explicit indexes:
+ * - email: unique (auto-created by unique:true)
+ * - createdAt: descending (for sorting by date)
+ * - passingOutYear: single (for filtering)
+ * - submittedSolution: single (for status filtering)
+ */
+RecruitmentSchema.index({ createdAt: -1 });
+RecruitmentSchema.index({ passingOutYear: 1 });
+RecruitmentSchema.index({ submittedSolution: 1 });
+
 export default mongoose.model('Recruitment', RecruitmentSchema, 'recruitment');

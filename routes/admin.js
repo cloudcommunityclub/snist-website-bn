@@ -24,6 +24,8 @@ function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const MAX_SEARCH_LENGTH = 100;
+
 // ─── STATS ───────────────────────────────────────────────────────────────────
 
 /**
@@ -98,6 +100,10 @@ router.get('/members', requireApiKey, async (req, res) => {
             typeof year !== 'string' || typeof emailSent !== 'string'
         ) {
             return res.status(400).json({ message: 'error', error: 'Invalid query parameters' });
+        }
+
+        if (search.length > MAX_SEARCH_LENGTH) {
+            return res.status(400).json({ message: 'error', error: 'Search query too long' });
         }
 
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -202,6 +208,10 @@ router.get('/recruitment', requireApiKey, async (req, res) => {
             typeof unlocked !== 'string'
         ) {
             return res.status(400).json({ message: 'error', error: 'Invalid query parameters' });
+        }
+
+        if (search.length > MAX_SEARCH_LENGTH) {
+            return res.status(400).json({ message: 'error', error: 'Search query too long' });
         }
 
         const pageNum = Math.max(1, parseInt(page, 10) || 1);
