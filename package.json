@@ -2,6 +2,7 @@
   "name": "c3-backend",
   "version": "1.0.0",
   "description": "Backend API for Cloud Community Club membership registration.",
+  "packageManager": "npm@10.9.0",
   "main": "server.js",
   "type": "module",
   "scripts": {
