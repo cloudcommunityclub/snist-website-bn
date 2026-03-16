@@ -136,7 +136,7 @@ router.post("/unlock", apiLimiter, requireApiKey, async (req, res) => {
  */
 router.post('/submit', requireApiKey, async (req, res) => {
     try {
-        const { email: rawEmail, problemId, workLink, prUrl } = req.body;
+        const { email: rawEmail, problemId } = req.body;
 
         if (!rawEmail || typeof rawEmail !== 'string') {
             return res.status(400).json({ message: 'error', error: 'Email is required' });
@@ -153,8 +153,6 @@ router.post('/submit', requireApiKey, async (req, res) => {
             updatedAt: new Date()
         };
         if (problemId && typeof problemId === 'string') updateData.problemUnlocked = problemId;
-        const submittedLink = typeof workLink === 'string' ? workLink : prUrl;
-        if (submittedLink && submittedLink.length < 500) updateData.prUrl = submittedLink;
 
         const candidate = await Recruitment.findOneAndUpdate(
             { email: { $eq: email } },
