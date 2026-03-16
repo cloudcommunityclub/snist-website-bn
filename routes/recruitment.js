@@ -25,7 +25,7 @@ router.get("/", (req, res) => {
         instructions: "Use POST endpoints to interact with the recruitment flow",
         endpoints: {
             unlock: "POST /api/recruitment/unlock - Submit details to unlock challenges",
-            submit: "POST /api/recruitment/submit - Record a PR submission (sets submittedSolution: true)"
+            submit: "POST /api/recruitment/submit - Record a solution submission (sets submittedSolution: true)"
         }
     });
 });
@@ -136,7 +136,7 @@ router.post("/unlock", apiLimiter, requireApiKey, async (req, res) => {
  */
 router.post('/submit', requireApiKey, async (req, res) => {
     try {
-        const { email: rawEmail, problemId, prUrl } = req.body;
+        const { email: rawEmail, problemId } = req.body;
 
         if (!rawEmail || typeof rawEmail !== 'string') {
             return res.status(400).json({ message: 'error', error: 'Email is required' });
@@ -153,7 +153,6 @@ router.post('/submit', requireApiKey, async (req, res) => {
             updatedAt: new Date()
         };
         if (problemId && typeof problemId === 'string') updateData.problemUnlocked = problemId;
-        if (prUrl && typeof prUrl === 'string' && prUrl.length < 500) updateData.prUrl = prUrl;
 
         const candidate = await Recruitment.findOneAndUpdate(
             { email: { $eq: email } },

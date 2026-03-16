@@ -3,16 +3,23 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import app from '../server.js';
 import { jest } from '@jest/globals';
+import Registration2026 from '../models/registration2026.js';
 
 // Set timeout to avoid issues with slow CI environments
 jest.setTimeout(30000);
 
 let mongoServer;
+const TEST_API_KEY = 'test-api-key';
 
 beforeAll(async () => {
+  process.env.API_KEY = TEST_API_KEY;
   mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
   await mongoose.connect(uri);
+});
+
+beforeEach(async () => {
+  await Registration2026.deleteMany({});
 });
 
 afterAll(async () => {
@@ -27,16 +34,18 @@ describe('API Tests', () => {
     expect(res.body).toEqual({ status: 'ok' });
   });
 
-  test('POST /test', async () => {
-    const payload = { test: 'data' };
-    const res = await request(app).post('/test').send(payload);
+  test('GET /api/register', async () => {
+    const res = await request(app).get('/api/register');
     expect(res.statusCode).toBe(200);
-    expect(res.body.body).toEqual(payload);
+    expect(res.body.message).toBe('Registration API is working');
   });
 
   // Test registration endpoint (validation)
   test('POST /api/register - Validation Error', async () => {
-    const res = await request(app).post('/api/register').send({});
+    const res = await request(app)
+      .post('/api/register')
+      .set('x-api-key', TEST_API_KEY)
+      .send({});
     expect(res.statusCode).toBe(400);
   });
 
@@ -57,13 +66,15 @@ describe('API Tests', () => {
         referral: "None"
      };
 
-     const res = await request(app).post('/api/register').send(payload);
+     const res = await request(app)
+       .post('/api/register')
+       .set('x-api-key', TEST_API_KEY)
+       .send(payload);
      expect(res.statusCode).toBe(200);
      expect(res.body.message).toBe("success");
 
      // Verify it is in DB
-     const NewMembers = mongoose.model('NewMembers');
-     const member = await NewMembers.findOne({ email: "test@example.com" });
+     const member = await Registration2026.findOne({ email: "test@example.com" });
      expect(member).toBeTruthy();
      expect(member.name).toBe("Test User");
   });
