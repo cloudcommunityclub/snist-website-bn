@@ -170,7 +170,8 @@ router.get('/screenshot', requireApiKey, async (req, res) => {
 
     let absolutePath;
     if (relativePath.startsWith('http')) {
-      const filename = path.basename(new URL(relativePath).pathname);
+      const urlPath = new URL(relativePath).pathname.replace(/^\//, '');
+      const filename = path.basename(urlPath);
       const searchDir = path.join(UPLOAD_ROOT, 'digital-india-hackathon', 'ideathon', 'payment-screenshots');
       absolutePath = await findFileRecursive(searchDir, filename);
 
@@ -183,7 +184,7 @@ router.get('/screenshot', requireApiKey, async (req, res) => {
       }
 
       if (!absolutePath) {
-        const r2Key = `uploads/digital-india-hackathon/ideathon/payment-screenshots/${filename}`;
+        const r2Key = urlPath;
         const r2Result = await fetchFromR2(r2Key);
         if (r2Result) {
           res.set('Content-Type', r2Result.contentType);
