@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { requireApiKey } from '../../middleware/auth.js';
 import IdeathonSubmission from '../../models/digital-india-ideathon.js';
+import mongoose from 'mongoose';
 import { UPLOAD_ROOT } from '../../config/uploads.js';
 import { fetchFromR2, isConfigured as r2Configured, initR2 } from '../../lib/r2.js';
 
@@ -154,7 +155,18 @@ router.get('/screenshot', requireApiKey, async (req, res) => {
       return res.status(400).json({ message: 'error', error: 'Submission ID is required' });
     }
 
-    const submission = await IdeathonSubmission.findById(id).lean();
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'error', error: 'Invalid Submission ID format' });
+    }
+
+    let submission = await IdeathonSubmission.findById(id).lean();
+    if (!submission) {
+      const HackathonModel = (await import('../../models/digital-india-hackathon.js')).default;
+      submission = await HackathonModel.findById(id).lean();
+    }
+    if (!submission) {
+      submission = await mongoose.connection.db.collection('digital_india_accepted').findOne({ _id: new mongoose.Types.ObjectId(id) });
+    }
 
     if (!submission) {
       return res.status(404).json({ message: 'error', error: 'Submission not found' });

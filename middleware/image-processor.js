@@ -34,7 +34,12 @@ export async function optimizeImage(filePath, options = {}) {
       withoutEnlargement: true,
     });
 
-  switch (ext) {
+  const targetExt = options.targetFilename ? path.extname(options.targetFilename) : ext;
+  const targetPath = options.targetFilename
+    ? path.join(path.dirname(filePath), options.targetFilename)
+    : filePath;
+
+  switch (targetExt) {
     case '.png':
       pipeline.png({ compressionLevel: 9, palette: true });
       break;
@@ -53,27 +58,37 @@ export async function optimizeImage(filePath, options = {}) {
 
   await pipeline.toFile(tempPath);
 
-  await fs.unlink(filePath);
-  await fs.rename(tempPath, filePath);
+  await fs.rename(tempPath, targetPath);
+  if (filePath !== targetPath) {
+    await fs.unlink(filePath).catch(() => {});
+  }
 
-  const optimizedStat = await fs.stat(filePath).catch(() => ({ size: originalSize }));
+  const finalPath = targetPath;
+  const optimizedStat = await fs.stat(finalPath).catch(() => ({ size: originalSize }));
   const optimizedSize = optimizedStat.size;
 
   let thumbnailPath = null;
 
   if (options.thumbnailDir) {
     await fs.mkdir(options.thumbnailDir, { recursive: true }).catch(() => {});
-    const thumbnailFilename = `${path.basename(basePath)}_thumb.jpg`;
+    const thumbnailFilename = options.targetFilename
+      ? `${path.basename(options.targetFilename, targetExt)}_thumb.jpg`
+      : `${path.basename(basePath)}_thumb.jpg`;
     thumbnailPath = path.join(options.thumbnailDir, thumbnailFilename);
 
-    await sharp(filePath)
-      .resize(thumbWidth, null, { fit: 'cover' })
-      .jpeg({ quality: thumbQuality })
-      .toFile(thumbnailPath);
+    try {
+      await sharp(finalPath)
+        .resize(thumbWidth, null, { fit: 'cover' })
+        .jpeg({ quality: thumbQuality })
+        .toFile(thumbnailPath);
+    } catch (thumbErr) {
+      await fs.unlink(finalPath).catch(() => {});
+      throw thumbErr;
+    }
   }
 
   return {
-    originalPath: filePath,
+    originalPath: finalPath,
     thumbnailPath,
     originalSize,
     optimizedSize,
@@ -96,15 +111,30 @@ export function optimizeUploadedImage(options = {}) {
         thumbnailDir = paths.thumbnailDir;
       }
 
-      const result = await optimizeImage(req.file.path, { ...options, thumbnailDir });
+      let targetFilename = undefined;
+      if (req.body && (req.body.utrId || req.body.phone || req.body.teamName || req.body.name)) {
+        const cleanUtr = (req.body.utrId || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 24);
+        const cleanPhone = (req.body.phone || '').replace(/[^0-9]/g, '').slice(0, 15);
+        const cleanName = (req.body.teamName || req.body.name || 'sub').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+        const shortHash = path.basename(req.file.path).replace(/\.[^/.]+$/, '').slice(0, 8);
+        targetFilename = `utr_${cleanUtr || 'none'}___phone_${cleanPhone || 'none'}___${cleanName}___${shortHash}.webp`;
+      }
+
+      const result = await optimizeImage(req.file.path, { ...options, thumbnailDir, targetFilename });
 
       req.fileOptimization = result;
 
+      req.file.path = result.originalPath;
       req.file.optimizedPath = result.originalPath;
       req.file.thumbnailPath = result.thumbnailPath;
 
       next();
     } catch (err) {
+      if (req.file && req.file.path) {
+        await fs.unlink(req.file.path).catch(() => {});
+      }
+      err.status = err.status || 400;
+      err.message = `Image optimization error: ${err.message}`;
       next(err);
     }
   };
