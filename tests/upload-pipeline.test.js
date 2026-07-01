@@ -55,7 +55,7 @@ afterAll(async () => {
 
 describe('Upload Pipeline', () => {
   test('rejects file larger than size limit', async () => {
-    const largeBuffer = Buffer.alloc(6 * 1024 * 1024);
+    const largeBuffer = Buffer.alloc(16 * 1024 * 1024);
     const res = await request(app)
       .post('/api/digital-india/ideathon/submit')
       .field('name', 'Test')

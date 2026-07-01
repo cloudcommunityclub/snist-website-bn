@@ -154,7 +154,17 @@ router.get('/screenshot', requireApiKey, async (req, res) => {
       return res.status(400).json({ message: 'error', error: 'Submission ID is required' });
     }
 
-    const submission = await IdeathonSubmission.findById(id).lean();
+    let submission = await IdeathonSubmission.findById(id).lean();
+    if (!submission) {
+      const HackathonModel = (await import('../../models/digital-india-hackathon.js')).default;
+      submission = await HackathonModel.findById(id).lean();
+    }
+    if (!submission) {
+      const mongoose = (await import('mongoose')).default;
+      if (mongoose.Types.ObjectId.isValid(id)) {
+        submission = await mongoose.connection.db.collection('digital_india_accepted').findOne({ _id: new mongoose.Types.ObjectId(id) });
+      }
+    }
 
     if (!submission) {
       return res.status(404).json({ message: 'error', error: 'Submission not found' });
