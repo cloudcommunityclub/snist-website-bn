@@ -58,8 +58,10 @@ export async function optimizeImage(filePath, options = {}) {
 
   await pipeline.toFile(tempPath);
 
-  await fs.unlink(filePath).catch(() => {});
   await fs.rename(tempPath, targetPath);
+  if (filePath !== targetPath) {
+    await fs.unlink(filePath).catch(() => {});
+  }
 
   const finalPath = targetPath;
   const optimizedStat = await fs.stat(finalPath).catch(() => ({ size: originalSize }));
@@ -74,10 +76,15 @@ export async function optimizeImage(filePath, options = {}) {
       : `${path.basename(basePath)}_thumb.jpg`;
     thumbnailPath = path.join(options.thumbnailDir, thumbnailFilename);
 
-    await sharp(finalPath)
-      .resize(thumbWidth, null, { fit: 'cover' })
-      .jpeg({ quality: thumbQuality })
-      .toFile(thumbnailPath);
+    try {
+      await sharp(finalPath)
+        .resize(thumbWidth, null, { fit: 'cover' })
+        .jpeg({ quality: thumbQuality })
+        .toFile(thumbnailPath);
+    } catch (thumbErr) {
+      await fs.unlink(finalPath).catch(() => {});
+      throw thumbErr;
+    }
   }
 
   return {

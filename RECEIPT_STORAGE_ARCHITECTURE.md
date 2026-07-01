@@ -32,14 +32,20 @@ Most POSIX filesystems (ext4, XFS) suffer severe directory traversal performance
 ```
 uploads/
 ├── tmp/                                 # Temporary staging for active uploads
-└── receipts/
-    └── digital-india/
-        ├── 2026/
-        │   ├── 06/                      # June 2026 receipts
-        │   └── 07/                      # July 2026 receipts
-        │       ├── receipt-1719823-a8f.webp
-        │       └── receipt-1719824-b9c.webp
-        └── 2027/
+├── digital-india-hackathon/
+│   ├── ideathon/
+│   │   ├── payment-screenshots/
+│   │   │   └── 2026/
+│   │   │       └── 07/
+│   │   │           └── utr_418293847561___phone_9876543210___team_cyber___a8f9b.webp
+│   │   └── thumbnails/
+│   │       └── 2026/
+│   │           └── 07/
+│   │               └── utr_418293847561___phone_9876543210___team_cyber___a8f9b_thumb.jpg
+│   └── hackathon/
+│       ├── payment-screenshots/
+│       └── thumbnails/
+└── pdfs/
 ```
 
 ### Directory Initialization
@@ -82,13 +88,13 @@ The file storage path is decoupled from the codebase using environment variables
 # Root directory for storing uploaded files
 # -----------------------------------------------------------------------------
 # Local Laptop Testing:
-UPLOAD_DIR=./uploads
+UPLOAD_PATH=./uploads
 
 # Baremetal / VPS Mounted Volume Deployment:
-# UPLOAD_DIR=/mnt/storage/c3_uploads
+# UPLOAD_PATH=/mnt/storage/c3_uploads
 ```
 
-When running locally on a developer laptop, images save inside `./uploads/receipts/...`. When deployed to the baremetal production server, pointing `UPLOAD_DIR` to a mounted RAID/SSD volume or SAN mount ensures persistent storage independent of container restarts.
+When running locally on a developer laptop, images save inside `./uploads/digital-india-hackathon/...`. When deployed to the baremetal production server, pointing `UPLOAD_PATH` to a mounted RAID/SSD volume or SAN mount ensures persistent storage independent of container restarts.
 
 ---
 
