@@ -22,13 +22,24 @@ export async function assertDiskSpace(dirPath, requiredBytes = MIN_DISK_SPACE) {
 }
 
 export const FILE_SIZE_LIMITS = {
-  SCREENSHOT: 5 * 1024 * 1024,
-  PDF: 10 * 1024 * 1024,
-  AVATAR: 2 * 1024 * 1024,
+  SCREENSHOT: 15 * 1024 * 1024,
+  PDF: 15 * 1024 * 1024,
+  AVATAR: 5 * 1024 * 1024,
 };
 
 export const ALLOWED_MIMES = {
-  IMAGE: ['image/png', 'image/jpeg', 'image/webp', 'image/avif'],
+  IMAGE: [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'image/avif',
+    'image/heic',
+    'image/heif',
+    'image/gif',
+    'image/bmp',
+    'image/tiff',
+  ],
   PDF: ['application/pdf'],
 };
 
