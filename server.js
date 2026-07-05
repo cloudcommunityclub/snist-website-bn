@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import registerRoutes from './routes/register.js';
 import adminRoutes from './routes/admin.js';
 import recruitmentRoutes from './routes/recruitment.js';
@@ -60,7 +61,29 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-const SENSITIVE_FIELDS = ['email', 'mobile', 'password', 'token', 'rollNumber'];
+// Rate limiting
+const submitLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'error', error: 'Too many submissions. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { message: 'error', error: 'Too many requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
+});
+
+app.use('/api/digital-india/ideathon/submit', submitLimiter);
+app.use('/api/', generalLimiter);
+
+const SENSITIVE_FIELDS = ['email', 'mobile', 'password', 'token', 'rollNumber', 'utrId'];
 function redactBody(body) {
   const redacted = { ...body };
   for (const field of SENSITIVE_FIELDS) {
@@ -70,7 +93,8 @@ function redactBody(body) {
 }
 
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} IP=${clientIP} UA=${req.headers['user-agent'] || 'unknown'}`);
   const headersToLog = { ...req.headers };
   if (headersToLog['x-api-key']) headersToLog['x-api-key'] = '[REDACTED]';
   console.log('Headers:', headersToLog);
