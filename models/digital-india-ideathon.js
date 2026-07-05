@@ -39,6 +39,11 @@ const IdeathonSubmissionSchema = new mongoose.Schema({
   lastPointEarnedAt: { type: Date, default: Date.now, index: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
+  // Geo fields
+  latitude: { type: Number },
+  longitude: { type: Number },
+  submitterIP: { type: String },
+  country: { type: String },
 });
 
 IdeathonSubmissionSchema.pre('save', function () {

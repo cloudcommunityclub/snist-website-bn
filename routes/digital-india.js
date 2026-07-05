@@ -10,6 +10,10 @@ import { requireApiKey } from '../middleware/auth.js';
 
 const router = Router();
 
+function getClientIP(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || 'unknown';
+}
+
 async function generateReferralCode(category) {
   const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const Model = category === 'hackathon'
@@ -46,6 +50,8 @@ function extractFormFields(body) {
       }
     })(),
     referredByCode: body.referredBy?.trim().toUpperCase() || null,
+    latitude: body.latitude ? Number(body.latitude) : undefined,
+    longitude: body.longitude ? Number(body.longitude) : undefined,
   };
 }
 
@@ -59,8 +65,21 @@ router.post(
   validateUploadedFile(),
   optimizeUploadedImage({ category: UPLOAD_CATEGORIES.DIGITAL_INDIA_IDEATHON }),
   async (req, res) => {
+    const clientIP = getClientIP(req);
+    console.log(`[Ideathon Submit] IP=${clientIP} UA=${req.headers['user-agent'] || 'unknown'} email=${req.body?.email || 'unknown'}`);
     try {
       const fields = extractFormFields(req.body);
+
+      // Validate geolocation
+      if (fields.latitude == null || fields.longitude == null ||
+          isNaN(fields.latitude) || isNaN(fields.longitude) ||
+          fields.latitude < -90 || fields.latitude > 90 ||
+          fields.longitude < -180 || fields.longitude > 180) {
+        return res.status(400).json({
+          message: 'error',
+          error: 'Location access is required. Please enable location services.',
+        });
+      }
 
       const requiredFields = [
         'name', 'college', 'email', 'phone', 'idea',
@@ -134,6 +153,9 @@ router.post(
         referredByCode: fields.referredByCode || undefined,
         referralPoints: 0,
         lastPointEarnedAt: new Date(),
+        latitude: fields.latitude,
+        longitude: fields.longitude,
+        submitterIP: clientIP,
       });
 
       console.log(`✅ Ideathon submission recorded: ${fields.email}`);
