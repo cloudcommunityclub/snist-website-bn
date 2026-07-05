@@ -104,7 +104,18 @@ router.get('/ideathon', requireApiKey, async (req, res) => {
 
 router.get('/ideathon/export', requireApiKey, async (req, res) => {
   try {
-    const submissions = await IdeathonSubmission.find()
+    const { verified, from, to } = req.query;
+    const filter = {};
+    if (verified === 'true') filter.paymentVerified = true;
+    if (verified === 'false') filter.paymentVerified = false;
+    if (from || to) {
+      const dateFilter = {};
+      if (from) dateFilter.$gte = new Date(from);
+      if (to) dateFilter.$lte = new Date(to);
+      filter.createdAt = dateFilter;
+    }
+
+    const submissions = await IdeathonSubmission.find(filter)
       .sort({ createdAt: -1 })
       .select('-__v -_id')
       .lean();
@@ -115,6 +126,7 @@ router.get('/ideathon/export', requireApiKey, async (req, res) => {
       'Verified At', 'Verified By', 'Team Name', 'Domain Track',
       'Team Size', 'Team Members', 'Referral Code', 'Referred By',
       'Referral Points', 'Registered At',
+      'Latitude', 'Longitude', 'Submitter IP', 'Country',
     ];
 
     const rows = submissions.map((s) =>
@@ -131,6 +143,8 @@ router.get('/ideathon/export', requireApiKey, async (req, res) => {
         s.referralCode, s.referredByCode ?? '',
         s.referralPoints,
         s.createdAt ? new Date(s.createdAt).toISOString() : '',
+        s.latitude ?? '', s.longitude ?? '',
+        s.submitterIP ?? '', s.country ?? '',
       ]
         .map(escCsv)
         .join(','),
@@ -138,8 +152,9 @@ router.get('/ideathon/export', requireApiKey, async (req, res) => {
 
     const csv = [headers.join(','), ...rows].join('\n');
 
+    const label = verified === 'true' ? 'verified' : verified === 'false' ? 'pending' : 'all';
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="c3-ideathon-submissions-${Date.now()}.csv"`);
+    res.setHeader('Content-Disposition', `attachment; filename="c3-ideathon-submissions-${label}-${Date.now()}.csv"`);
     return res.send(csv);
   } catch (error) {
     console.error('Ideathon export error:', error);
